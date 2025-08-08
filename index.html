@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Roommate Expense Tracker — Single File</title>
+<style>
+  :root{--bg:#f8fafc;--card:#ffffff;--muted:#64748b;--accent:#4f46e5;--danger:#ef4444}
+  *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial}
+  body{margin:0;background:var(--bg);color:#0f172a;padding:14px;}
+  .container{max-width:980px;margin:0 auto;}
+  header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
+  h1{font-size:18px;margin:0}
+  p.lead{margin:0;color:var(--muted);font-size:13px}
+  .grid{display:grid;gap:10px}
+  .cols-2{grid-template-columns:1fr 360px}
+  @media(max-width:880px){.cols-2{grid-template-columns:1fr} .side-hidden{order:3}}
+  .card{background:var(--card);border-radius:10px;padding:12px;box-shadow:0 1px 2px rgba(2,6,23,0.05)}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  input[type="text"], input[type="date"], input[type="number"], select, textarea{
+    width:100%;padding:8px;border-radius:6px;border:1px solid #e6eef6;font-size:14px;
+  }
+  .row{display:flex;gap:8px}
+  .row .col{flex:1}
+  button{background:var(--accent);color:white;padding:8px 12px;border-radius:8px;border:0;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid #e6eef6;color:var(--muted)}
+  .small{font-size:13px;padding:6px 8px;border-radius:8px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:8px;text-align:left;border-bottom:1px solid #f1f5f9}
+  .muted{color:var(--muted);font-size:13px}
+  .totals-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+  .total-card{background:#f8fafc;padding:8px;border-radius:8px;text-align:center}
+  .danger{color:var(--danger)}
+  .ok{color:green}
+  .controls{display:flex;gap:8px;flex-wrap:wrap}
+  .file-input{display:none}
+  footer{margin-top:14px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>Roommate Expense Tracker</h1>
+      <p class="lead">Harsh (main), Shivam, Nirbhay — self-hosted, mobile-friendly</p>
+    </div>
+    <div class="muted">Local only • No backend</div>
+  </header>
+
+  <main class="grid cols-2">
+    <section class="card">
+      <h3 style="margin-top:0;margin-bottom:8px">Add Expense</h3>
+
+      <div style="margin-bottom:8px">
+        <label>Date</label>
+        <input id="date" type="date" />
+      </div>
+
+      <div style="margin-bottom:8px">
+        <label>Category</label>
+        <select id="category"></select>
+      </div>
+
+      <div class="row" style="margin-bottom:8px">
+        <div class="col">
+          <label>Paid By</label>
+          <select id="paidBy"></select>
+        </div>
+        <div style="width:140px">
+          <label>Amount</label>
+          <input id="amount" type="number" step="0.01" min="0" placeholder="₹" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:10px">
+        <label>Notes (optional)</label>
+        <input id="notes" type="text" placeholder="e.g., veggies, electricity bill" />
+      </div>
+
+      <div class="controls" style="margin-bottom:10px">
+        <button id="addBtn">Add Expense</button>
+        <button id="resetBtn" class="ghost small">Reset</button>
+        <button id="exportBtn" class="small ghost">Export CSV</button>
+        <label class="small ghost" style="display:inline-block;cursor:pointer">
+          Import CSV
+          <input id="csvfile" class="file-input" type="file" accept=".csv" />
+        </label>
+      </div>
+
+      <div style="margin-top:6px">
+        <label>Quick categories</label>
+        <div id="quickCats" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+    </section>
+
+    <aside class="card side-hidden">
+      <h3 style="margin-top:0;margin-bottom:8px">Summary</h3>
+      <div style="margin-bottom:8px">
+        <label>Month filter</label>
+        <select id="monthFilter"><option value="">All months</option></select>
+      </div>
+
+      <div style="margin-bottom:8px">
+        <label>Search</label>
+        <input id="search" type="text" placeholder="search category, notes, date, name" />
+      </div>
+
+      <div style="margin-top:10px">
+        <div class="muted" style="margin-bottom:6px">Totals (All time)</div>
+        <div id="totalsAll" class="totals-grid"></div>
+
+        <div class="muted" style="margin:10px 0 6px">Totals (Current month)</div>
+        <div id="totalsMonth" class="totals-grid"></div>
+
+        <div style="margin-top:10px" class="muted">Total expense: <strong id="totalAmount">₹0.00</strong></div>
+        <div class="muted">Equal share: <strong id="equalShare">₹0.00</strong></div>
+      </div>
+    </aside>
+
+    <section class="card" style="grid-column:1/-1">
+      <h3 style="margin-top:0;margin-bottom:8px">Expenses</h3>
+      <div style="overflow:auto">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Category</th><th>Paid By</th><th>Amount</th><th>Notes</th><th>Action</th></tr>
+          </thead>
+          <tbody id="expensesTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" style="grid-column:1/-1;margin-top:6px">
+      <h3 style="margin-top:0;margin-bottom:8px">Monthly Totals</h3>
+      <div id="monthlyTotals"></div>
+    </section>
+
+  </main>
+
+  <footer>
+    Tip: Upload this file to Netlify or GitHub Pages. Data is stored in your browser. Export CSV to back up.
+  </footer>
+</div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'roommate_expenses_singlefile_v1';
+  const DEFAULT_USERS = [
+    {id:'harsh', name:'Harsh', isMain:true},
+    {id:'shivam', name:'Shivam', isMain:false},
+    {id:'nirbhay', name:'Nirbhay', isMain:false}
+  ];
+  const DEFAULT_CATS = ['Food','Vegetables','Electricity','Gas','Internet','Miscellaneous'];
+
+  // state
+  let state = { users: DEFAULT_USERS.slice(), categories: DEFAULT_CATS.slice(), expenses: [] };
+
+  // helpers
+  function uid(){ return Math.random().toString(36).slice(2,9); }
+  function todayISO(){ return new Date().toISOString().slice(0,10); }
+  function fmtDate(d){ try{ return new Date(d).toLocaleDateString(); }catch(e){return d} }
+  function monthKey(d){
+    const dt = new Date(d);
+    return dt.toLocaleString(undefined, {month:'long', year:'numeric'});
+  }
+
+  // persistence
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        const parsed = JSON.parse(raw);
+        state = { users: parsed.users || DEFAULT_USERS.slice(), categories: parsed.categories || DEFAULT_CATS.slice(), expenses: parsed.expenses || [] };
+      }
+    }catch(e){ console.warn('load err', e) }
+  }
+  function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+  // DOM refs
+  const dateEl = document.getElementById('date');
+  const catEl = document.getElementById('category');
+  const paidByEl = document.getElementById('paidBy');
+  const amountEl = document.getElementById('amount');
+  const notesEl = document.getElementById('notes');
+  const addBtn = document.getElementById('addBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const expensesTbody = document.getElementById('expensesTbody');
+  const totalsAll = document.getElementById('totalsAll');
+  const totalsMonth = document.getElementById('totalsMonth');
+  const totalAmountEl = document.getElementById('totalAmount');
+  const equalShareEl = document.getElementById('equalShare');
+  const monthFilter = document.getElementById('monthFilter');
+  const monthlyTotals = document.getElementById('monthlyTotals');
+  const searchEl = document.getElementById('search');
+  const quickCats = document.getElementById('quickCats');
+  const exportBtn = document.getElementById('exportBtn');
+  const csvFile = document.getElementById('csvfile');
+
+  // render helpers
+  function populateSelects(){
+    catEl.innerHTML = '';
+    state.categories.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; catEl.appendChild(o); });
+    paidByEl.innerHTML = '';
+    state.users.forEach(u => { const o=document.createElement('option'); o.value=u.id; o.textContent=u.name; paidByEl.appendChild(o); });
+    quickCats.innerHTML = '';
+    state.categories.slice(0,8).forEach(c=>{
+      const b = document.createElement('button'); b.className='small ghost'; b.textContent=c;
+      b.onclick = ()=> { catEl.value = c; amountEl.focus(); }
+      quickCats.appendChild(b);
+    });
+  }
+
+  function setDefaultsToToday(){ dateEl.value = todayISO(); }
+
+  function filteredExpenses(){
+    const q = (searchEl.value||'').toLowerCase().trim();
+    const m = monthFilter.value;
+    return state.expenses.filter(e=>{
+      if(m && monthKey(e.date)!==m) return false;
+      if(!q) return true;
+      const hay = [e.category, e.paidBy, e.notes, e.date, state.users.find(u=>u.id===e.paidBy)?.name||''].join(' ').toLowerCase();
+      return hay.includes(q);
+    }).sort((a,b)=> new Date(b.date) - new Date(a.date));
+  }
+
+  function computeTotals(list){
+    const map = {};
+    state.users.forEach(u=>map[u.id]=0);
+    list.forEach(e=>{
+      if(!map[e.paidBy]) map[e.paidBy]=0;
+      map[e.paidBy] += Number(e.amount||0);
+    });
+    return state.users.map(u=>({id:u.id,name:u.name,total:map[u.id]||0}));
+  }
+
+  function renderTotals(){
+    const all = computeTotals(state.expenses);
+    const currentMonth = computeTotals(state.expenses.filter(e=> monthKey(e.date) === monthKey(new Date()) ));
+    totalsAll.innerHTML = '';
+    totalsMonth.innerHTML = '';
+    all.forEach(t=>{
+      const div = document.createElement('div'); div.className='total-card';
+      div.innerHTML = `<div style="font-size:12px;color:var(--muted)">${t.name}</div><div style="font-weight:600">₹${t.total.toFixed(2)}</div>`;
+      totalsAll.appendChild(div);
+    });
+    currentMonth.forEach(t=>{
+      const div = document.createElement('div'); div.className='total-card';
+      div.innerHTML = `<div style="font-size:12px;color:var(--muted)">${t.name}</div><div style="font-weight:600">₹${t.total.toFixed(2)}</div>`;
+      totalsMonth.appendChild(div);
+    });
+
+    // totals & equal share (for filtered view)
+    const list = filteredExpenses();
+    const total = list.reduce((s,e)=>s + Number(e.amount||0),0);
+    totalAmountEl.textContent = '₹' + total.toFixed(2);
+    const equal = state.users.length ? total / state.users.length : 0;
+    equalShareEl.textContent = '₹' + equal.toFixed(2);
+  }
+
+  function renderExpenses(){
+    const list = filteredExpenses();
+    expensesTbody.innerHTML = '';
+    if(list.length===0){
+      const tr = document.createElement('tr'); tr.innerHTML = '<td colspan="6" class="muted" style="padding:16px;text-align:center">No expenses yet</td>';
+      expensesTbody.appendChild(tr);
+      return;
+    }
+    list.forEach(e=>{
+      const tr = document.createElement('tr');
+      const name = state.users.find(u=>u.id===e.paidBy)?.name || e.paidBy;
+      tr.innerHTML = `<td>${fmtDate(e.date)}</td><td>${e.category}</td><td>${name}</td><td>₹${Number(e.amount).toFixed(2)}</td><td>${(e.notes||'')}</td><td><button class="ghost small">Delete</button></td>`;
+      tr.querySelector('button').addEventListener('click', ()=>{
+        if(confirm('Delete this expense?')) {
+          state.expenses = state.expenses.filter(x=>x.id!==e.id);
+          save(); refreshAll();
+        }
+      });
+      expensesTbody.appendChild(tr);
+    });
+  }
+
+  function renderMonths(){
+    const months = Array.from(new Set(state.expenses.map(e=>monthKey(e.date))));
+    monthFilter.innerHTML = '<option value="">All months</option>';
+    months.sort((a,b)=> new Date(b) - new Date(a)).forEach(m=>{
+      const o = document.createElement('option'); o.value = m; o.textContent = m; monthFilter.appendChild(o);
+    });
+
+    // monthly totals list
+    const grouped = {};
+    state.expenses.forEach(e => {
+      const k = monthKey(e.date);
+      grouped[k] = (grouped[k]||0) + Number(e.amount||0);
+    });
+    monthlyTotals.innerHTML = '';
+    const keys = Object.keys(grouped).sort((a,b)=> new Date(b) - new Date(a));
+    if(keys.length===0){ monthlyTotals.innerHTML = '<div class="muted">No data</div>'; return; }
+    keys.forEach(k=>{
+      const div = document.createElement('div'); div.style.display='flex'; div.style.justifyContent='space-between'; div.style.padding='6px 0'; div.innerHTML = `<div>${k}</div><div>₹${grouped[k].toFixed(2)}</div>`;
+      monthlyTotals.appendChild(div);
+    });
+  }
+
+  function refreshAll(){
+    populateSelects();
+    renderMonths();
+    renderExpenses();
+    renderTotals();
+    setDefaultsToToday();
+  }
+
+  // actions
+  addBtn.addEventListener('click', ()=>{
+    const date = dateEl.value || todayISO();
+    const category = catEl.value || state.categories[0];
+    const paidBy = paidByEl.value || state.users[0].id;
+    const amount = parseFloat(amountEl.value);
+    const notes = notesEl.value || '';
+    if(!date || !category || !paidBy || !amount || amount <= 0){ alert('Enter valid date, category, payer and positive amount'); return; }
+    const newE = { id: uid(), date, category, paidBy, amount: Number(amount), notes, createdAt: new Date().toISOString() };
+    state.expenses.unshift(newE);
+    save();
+    // reset amount & notes
+    amountEl.value=''; notesEl.value='';
+    refreshAll();
+  });
+
+  resetBtn.addEventListener('click', ()=>{
+    dateEl.value = todayISO(); catEl.selectedIndex = 0; paidByEl.selectedIndex = 0; amountEl.value=''; notesEl.value='';
+  });
+
+  monthFilter.addEventListener('change', ()=>{ renderExpenses(); renderTotals(); });
+
+  searchEl.addEventListener('input', ()=>{
+    renderExpenses(); renderTotals();
+  });
+
+  exportBtn.addEventListener('click', ()=>{
+    // export all expenses as CSV
+    const headers = ['Date','Category','PaidBy','Amount','Notes'];
+    const rows = state.expenses.map(e => [e.date,e.category,e.paidBy,e.amount, '"' + (e.notes||'') + '"' ].join(','));
+    const csv = [headers.join(','), ...rows].join('\\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'roommate_expenses_' + todayISO() + '.csv'; a.click(); URL.revokeObjectURL(url);
+  });
+
+  csvFile.addEventListener('change', (ev)=>{
+    const f = ev.target.files && ev.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const txt = e.target.result;
+        const lines = txt.split(/\\r?\\n/).filter(Boolean);
+        const data = lines.slice(1).map(ln=>{
+          const parts = ln.split(',');
+          return {
+            id: uid(),
+            date: parts[0] || todayISO(),
+            category: parts[1] || state.categories[0],
+            paidBy: parts[2] || state.users[0].id,
+            amount: parseFloat(parts[3]) || 0,
+            notes: (parts[4]||'').replace(/^"|"$/g,''),
+            createdAt: new Date().toISOString()
+          };
+        });
+        state.expenses = [...data, ...state.expenses];
+        save(); refreshAll();
+        alert('Imported ' + data.length + ' rows');
+      }catch(err){ alert('Failed to import: ' + err); }
+    };
+    reader.readAsText(f);
+    // reset input
+    csvFile.value = '';
+  });
+
+  // init
+  load();
+  refreshAll();
+
+  // expose for console debugging (optional)
+  window.__roommate_state = state;
+
+})();
+</script>
+</body>
+</html>
